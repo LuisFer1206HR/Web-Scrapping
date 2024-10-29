@@ -1,0 +1,58 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time 
+
+# Inicializar el webdriver (ajusta según el navegador que uses)
+driver = webdriver.Chrome()
+
+# Navegar a la página
+driver.get("http://sialss.gnkl.mx:8080/SIALSS/")
+
+# Completar el formulario de inicio de sesión (ajusta los identificadores)
+username_field = driver.find_element(By.ID, "nombre")
+password_field = driver.find_element(By.ID, "pass")
+username_field.send_keys("LDLOPEZ")
+password_field.send_keys("M4891Wk6")
+password_field.submit()
+
+# Espera y encuentra la alerta (ajusta el selector CSS si es necesario)
+try:
+    alerta = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, ".sweet-alert.showSweetAlert.visible"))
+    )
+
+    # Encuentra y hace clic en el botón "Continuar!"
+    boton_continuar = alerta.find_element(By.CSS_SELECTOR, ".confirm")
+    boton_continuar.click()
+except:
+    print("La alerta no apareció. Continuando...")
+
+    # Si no aparece la alerta, busca y hace clic en el botón "Acceder"
+    try:
+        boton_acceder = driver.find_element(By.CSS_SELECTOR, "button[name='envio']")
+        boton_acceder.click()
+    except:
+        print("No se encontró el botón 'Acceder'")
+
+time.sleep(10)        
+
+driver.get("http://sialss.gnkl.mx:8080/SIALSS/main_menu.jsp")
+# Manejar la alerta de contraseña vencida
+try:
+    WebDriverWait(driver, 10).until(EC.alert_is_present())
+    alert = driver.switch_to.alert
+    alert.accept()  # Aceptar la alerta
+except Exception as e:
+    print("No se encontró ninguna alerta:", e)
+
+
+
+
+
+
+
+# ... (continuar con la búsqueda y descarga de archivos)
+
+# Cerrar el navegador
