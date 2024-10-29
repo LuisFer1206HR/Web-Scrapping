@@ -1,0 +1,221 @@
+from selenium import webdriver  # Importa la biblioteca de Selenium para controlar navegadores web
+from selenium.webdriver.chrome.service import Service  # Importa el servicio necesario para iniciar ChromeDriver
+from selenium.webdriver.common.by import By  # Proporciona métodos para localizar elementos en la página web
+from selenium.webdriver.support import expected_conditions as EC  # Permite esperar hasta que ciertas condiciones se cumplan
+from selenium.webdriver.support.wait import WebDriverWait  # Facilita esperar de manera explícita hasta que se cumplan condiciones
+from selenium.common.exceptions import TimeoutException  # Importa excepciones para manejar tiempos de espera agotados
+from datetime import datetime, timedelta  # Importa funciones para manejar fechas y tiempos
+from tkinter import messagebox  # Importa funciones para mostrar cuadros de diálogo
+from selenium.webdriver.common.keys import Keys
+import tkinter as tk  # Importa tkinter para interfaces gráficas
+import time  # Proporciona funciones relacionadas con el tiempo
+import sys  # Importa el módulo sys para operaciones del sistema, como salir del script
+import shutil
+import os
+import glob
+
+# Ruta completa hacia el ChromeDriver
+ruta_chromedriver = "C:/Users/lhuerta/OneDrive - Nucitec/108-Python/chromedriver.exe"
+
+# Crear una instancia del servicio de ChromeDriver
+servicio = Service(ruta_chromedriver)
+
+# Crear una instancia del WebDriver para Chrome
+driver = webdriver.Chrome(service=servicio)
+
+# Abrir la página
+driver.get("https://ppsai-abasto.imss.gob.mx/abasto-web/login")
+print("1-Página abierta.")
+
+# Inicio de sesión en Formulario
+web_user = driver.find_element(By.ID, 'idUsuario')
+web_user.send_keys("USERNAME")
+web_pw = driver.find_element(By.ID, 'idPassword')
+web_pw.send_keys("Password")
+web_button = driver.find_element(By.NAME, 'loginButton')
+web_button.click()
+print("2-Login Correcto.")
+
+# Ir a Consultar Órdenes - Menú
+WebDriverWait(driver, 10).until(
+    EC.presence_of_element_located((By.CLASS_NAME, "dropdown-toggle"))
+)
+menu_toggle = driver.find_element(By.CLASS_NAME, "dropdown-toggle")
+menu_toggle.click()
+print("3-Menú desplegado.")
+
+# Seleccionar la opción "Consulta de órdenes"
+consulta_ordenes = driver.find_element(By.LINK_TEXT, "Consulta de órdenes")
+consulta_ordenes.click()
+print("4-Ingreso a órdenes.")
+
+# Esperar hasta que el campo de fecha esté presente
+WebDriverWait(driver, 10).until(
+    EC.presence_of_element_located((By.ID, "fechaIni"))
+)
+
+# Determinar las fechas de inicio y fin
+dia_actual = datetime.now().weekday()
+
+if dia_actual == 0:  # Si es lunes
+    fecha_fin = datetime.now().strftime('%d/%m/%Y')  # Lunes actual
+    fecha_ini = (datetime.now() - timedelta(days=4)).strftime('%d/%m/%Y')  # jueves anterior
+    print("Hoy es lunes. Usando fechas: jueves anterior y Lunes actual.")
+else:
+    fecha_fin = datetime.now().strftime('%d/%m/%Y')  # Hoy
+    fecha_ini = (datetime.now() - timedelta(days=1)).strftime('%d/%m/%Y')  # Ayer
+    print("Hoy no es lunes. Usando fechas: Ayer y Hoy.")
+
+print(f"Fecha de Inicio: {fecha_ini}")
+print(f"Fecha de Fin: {fecha_fin}")
+
+# Encontrar el campo de fecha y establecer las fechas
+campo_fecha_ini = driver.find_element(By.ID, 'fechaIni')
+campo_fecha_fin = driver.find_element(By.ID, 'fechaFin')
+
+# Limpiar los campos de fecha si es necesario
+campo_fecha_ini.clear()
+campo_fecha_fin.clear()
+
+campo_fecha_ini.send_keys(fecha_ini)
+campo_fecha_fin.send_keys(fecha_fin)
+
+# Simular un Enter después de agregar la fecha de fin
+campo_fecha_fin.send_keys(Keys.ENTER)
+print("5-Fechas agregadas.")
+
+# Esperar hasta que el botón "Consultar Órdenes" sea clickeable
+WebDriverWait(driver, 20).until(
+    EC.element_to_be_clickable((By.CLASS_NAME, "btn-primary"))
+)
+
+# Botón Consultar Órdenes
+button_Consultar = driver.find_element(By.CLASS_NAME, 'btn-primary')
+button_Consultar.click()
+print("6-Consulta realizada.")
+
+# A1 - Validación de un modal - Sin Datos
+try:
+    # Esperar hasta que el modal sea visible
+    WebDriverWait(driver, 5).until(
+        EC.visibility_of_element_located((By.CLASS_NAME, "modal-content"))
+    )
+    print("6.1.1-Modal encontrado: Sin Datos para Exportar")
+
+    # Hacer clic en el botón "Aceptar" dentro del modal
+    boton_aceptar_modal = WebDriverWait(driver, 2).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn-default') and text()='Aceptar']"))
+    )
+    boton_aceptar_modal.click()
+    print("6.1.2-Botón 'Aceptar' en el modal clickeado.")
+
+    # Cerrar el navegador al finalizar
+    print("6.1.3-Explorador cerrado")
+    driver.quit()
+
+    # Mostrar una ventana emergente con el mensaje "Sin Datos para exportar en Órdenes"
+    root = tk.Tk()
+    root.withdraw()  # Ocultar la ventana principal de tkinter
+    messagebox.showinfo("6.4-Mensaje", "Sin Datos para exportar en Órdenes")
+    root.destroy()
+    sys.exit("Terminado: Sin Datos para Exportar")      
+except TimeoutException:
+    # Si el modal no aparece, continuar con el flujo normal
+    print("7-Modal no encontrado.")
+
+# Validar que la tabla esté visible
+try:
+    # Espera hasta que el elemento sea visible en el DOM
+    WebDriverWait(driver, 5).until(
+        EC.visibility_of_element_located((By.CLASS_NAME, "table-striped"))
+    )
+    print("7-Tabla Visible.")
+except TimeoutException:
+    # Si ocurre una excepción de tiempo de espera, intenta de nuevo
+    button_Consultar = driver.find_element(By.CLASS_NAME, 'btn-primary')
+    button_Consultar.click()
+    print("6-Consulta realizada2.")
+
+# A2 - Validación de un modal - Sin Datos
+try:
+    # Esperar hasta que el modal sea visible
+    WebDriverWait(driver, 5).until(
+        EC.visibility_of_element_located((By.CLASS_NAME, "modal-content"))
+    )
+    print("6.2.1-Modal encontrado: Sin Datos para Exportar")
+
+    # Hacer clic en el botón "Aceptar" dentro del modal
+    boton_aceptar_modal = WebDriverWait(driver, 2).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn-default') and text()='Aceptar']"))
+    )
+    boton_aceptar_modal.click()
+    print("6.2.2-Botón 'Aceptar' en el modal clickeado.")
+
+    # Cerrar el navegador al finalizar
+    print("6.2.3-Explorador cerrado")
+    driver.quit()
+
+    # Mostrar una ventana emergente con el mensaje "Sin Datos para exportar en Órdenes"
+    root = tk.Tk()
+    root.withdraw()  # Ocultar la ventana principal de tkinter
+    messagebox.showinfo("6.4-Mensaje", "Sin Datos para exportar en Órdenes")
+    root.destroy()
+    sys.exit("Terminado: Sin Datos para Exportar")
+      
+except TimeoutException:
+    # Si el modal no aparece, continuar con el flujo normal
+    print("7.1-Modal no encontrado: Con datos a Exportar.")
+
+# Esperar hasta que el botón "Exportar" sea visible y clickeable - Órdenes
+try:
+    WebDriverWait(driver, 20).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn-default') and contains(., 'Exportar')]"))
+    )
+    button_Exportar = driver.find_element(By.XPATH, "//button[contains(@class, 'btn-default') and contains(., 'Exportar')]")
+    button_Exportar.click()
+    print("8-Botón de Exportar encontrado y Data Descargada.")
+except TimeoutException:
+    # Verifica la visibilidad del botón de exportación alternativo
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn-default') and contains(., 'Exportar')]"))
+    )
+    button_ExportarDos = driver.find_element(By.XPATH, "//button[contains(@class, 'btn-default') and contains(., 'Exportar')]")
+    button_ExportarDos.click()
+    print("9-Botón de Exportar alternativo encontrado y Data Descargada.")
+
+time.sleep(20)
+
+# Cerrar el navegador al finalizar
+print("10-Explorador cerrado")
+driver.quit()
+
+# Manejo de Archivos Descargados
+ruta_descargas = "C:/Users/lhuerta/Downloads"  # Carpeta donde se descarga el archivo
+ruta_onedrive = "C:/Users/lhuerta/OneDrive - Nucitec/OR"  # Ruta a la carpeta de OneDrive
+
+try:
+    time.sleep(20)  # Esperar a que la descarga termine
+
+    # Identificar el archivo más reciente en la carpeta de descargas
+    list_of_files = glob.glob(os.path.join(ruta_descargas, '*'))  # Obtiene la lista de archivos en la carpeta de descargas
+    archivo_mas_reciente = max(list_of_files, key=os.path.getctime)  # Identifica el archivo más reciente
+
+    # Mover el archivo más reciente a la carpeta de OneDrive
+    destino = os.path.join(ruta_onedrive, os.path.basename(archivo_mas_reciente))
+
+    if os.path.exists(archivo_mas_reciente):
+        shutil.move(archivo_mas_reciente, destino)
+        print(f"Archivo {os.path.basename(archivo_mas_reciente)} movido a {destino} exitosamente.")
+    else:
+        print("El archivo descargado no se encontró.")
+
+finally:
+    print("10-Explorador cerrado")
+    driver.quit()
+
+sys.exit("Fin del proceso") 
+
+# Guarda una captura de pantalla en el directorio actual
+#driver.save_screenshot('error_screenshot.png')
+# Guarda la captura de pantalla en una ubicación específica
+#driver.save_screenshot('C:/ruta/a/la/carpeta/error_screenshot.png')
