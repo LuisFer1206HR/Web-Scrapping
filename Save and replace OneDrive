@@ -1,0 +1,110 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+import time
+import os
+import shutil
+from glob import glob
+
+# Diccionario con los nombres específicos para cada estatus
+estatus_nombres = {
+    "2": "Pendiente de remision",
+    "4": "Recibida (Completa)",
+    "5": "Con rechazo",
+    "6": "Reprogramada (Rechazo)"
+}
+
+start_time = time.time()
+# Ruta completa hacia el ChromeDriver
+ruta_chromedriver = "C:/Users/lhuerta/OneDrive - Nucitec/108-Python/chromedriver.exe"
+servicio = Service(ruta_chromedriver)
+driver = webdriver.Chrome(service=servicio)
+
+# Carpeta de descargas y carpeta destino
+download_folder = "C:/Users/lhuerta/Downloads"  # Ajusta esto a tu carpeta de descargas
+destination_folder = "C:/Users/lhuerta/OneDrive - Nucitec/Documentos - OR IMSABI"
+
+# Lista de valores de estatus que deseas seleccionar
+estatus_values = ["2", "4", "5", "6"]
+
+for value in estatus_values:
+    # Abre la página web
+    driver.get('https://gestorinsumos.salud.gob.mx/camunda/app/tasklist/default/#/login')  
+    print("Ingreso a la página web exitoso")
+
+    # Esperar hasta que el campo de usuario esté presente y visible, con un tiempo máximo de 30 segundos
+    wait = WebDriverWait(driver, 30)
+    username_field = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Usuario']")))
+    username_field.send_keys("nucitecUsuario1")  
+
+    # Encontrar el campo de entrada de la contraseña e insertar la clave
+    password_field = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Contraseña']")))
+    password_field.send_keys("1CmB1FNthfiH")
+    print("Usuario y contraseña agregados exitosamente")
+
+    # Esperar hasta que el botón de "Iniciar sesión" esté presente y visible, y luego hacer clic
+    login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Iniciar sesión']")))
+    login_button.click()
+    time.sleep(2)        
+    driver.refresh()
+
+    # Esperar hasta que el span sea visible y clicable, con un tiempo máximo de 30 segundos
+    span_element = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[@class='glyphicon glyphicon-list-alt']")))
+    driver.execute_script("arguments[0].click();", span_element)
+    print("Abierto el módulo de Iniciar proceso")
+
+    imprimir_ordenes_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[@ng-click='selectProcessDefinition(processDefinition)' and contains(text(), 'Imprimir órdenes de suministro')]")))
+    driver.execute_script("arguments[0].click();", imprimir_ordenes_button)
+    print("Clic en el botón 'Imprimir órdenes de suministro' realizado exitosamente")
+
+    # Esperar hasta que el elemento de selección de estatus esté presente y seleccionar el valor actual
+    estatus_select = wait.until(EC.element_to_be_clickable((By.ID, "input-estatus")))
+    select_element = Select(estatus_select)
+    select_element.select_by_value(value)  # Selecciona el valor actual en el bucle
+    print(f"Opción con valor '{value}' seleccionada en el menú desplegable 'Estatus'")
+
+    # Hacer clic en el botón de descargar Excel
+    download_excel_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@name='btnDownloadXlsx' and @type='submit']")))
+    driver.execute_script("arguments[0].click();", download_excel_button)
+    print("Clic en el botón 'Descargar Excel' realizado exitosamente")
+
+    # Esperar para asegurar la descarga antes de proceder al siguiente valor
+    time.sleep(10)
+
+    # Buscar el archivo descargado que contiene 'ordenesSuministro' en su nombre
+    files = sorted(glob(os.path.join(download_folder, "*ordenesSuministro*")), key=os.path.getctime, reverse=True)
+    if files:
+        downloaded_file = files[0]  # Tomar el archivo más reciente
+        estatus_nombre = estatus_nombres.get(value, f"Estatus_{value}")  # Obtener el nombre del estatus
+
+        # Definir la ruta de destino con el nombre específico
+        new_file_name = f"{value}-{estatus_nombre}.xlsx"
+        new_file_path = os.path.join(destination_folder, new_file_name)
+
+        # Si ya existe un archivo con el mismo nombre en la carpeta de destino, reemplazarlo
+        if os.path.exists(new_file_path):
+            os.remove(new_file_path)
+            print(f"El archivo existente '{new_file_name}' ha sido eliminado para ser reemplazado.")
+
+        try:
+            shutil.move(downloaded_file, new_file_path)
+            print(f"Archivo '{downloaded_file}' renombrado y movido a '{new_file_path}'")
+        except Exception as e:
+            print(f"Error al mover y renombrar el archivo: {e}")
+
+    # Cerrar el proceso y refrescar la página
+    close_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='button' and contains(@ng-click, '$dismiss()')]")))
+    driver.execute_script("arguments[0].click();", close_button)
+    print("Clic en el botón 'Cerrar' realizado exitosamente")
+    driver.refresh()
+
+# Cerrar el navegador al finalizar todo el proceso
+driver.quit()
+
+end_time = time.time()
+# Calcular el tiempo que tomó en aparecer
+elapsed_time = end_time - start_time
+print(f"El proceso tardó {elapsed_time:.2f} segundos en realizarse")
